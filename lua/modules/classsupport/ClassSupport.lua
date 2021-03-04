@@ -15,14 +15,33 @@ local function getId(tbl)
     return tostring(tbl):gsub("table: ", "", 1)
 end
 
--- for debugging purpose
-local clazzById = {}
+local function isClass(val)
+    return val and val[MEMBER] and val[MEMBER].type == TYPE_CLASS
+end
+
+local function isObject(val)
+    return val and val[MEMBER] and val[MEMBER].type == TYPE_OBJECT
+end
+
+local function requireClass(val)
+    if not isClass(val) then
+        error("require class")
+    end
+end
+
+local function requireObject(val)
+    if not isObject(val) then
+        error("require object")
+    end
+end
 
 local function getClassForObject(obj)
+    requireObject(obj)
     return getmetatable(obj).__index
 end
 
 local function getParentClassForClass(clazz)
+    requireClass(clazz)
     local mtOfClazz = getmetatable(clazz)
     local mtOfMtOfClazz = getmetatable(mtOfClazz)
     if mtOfMtOfClazz then
@@ -32,6 +51,9 @@ local function getParentClassForClass(clazz)
     end
 end
 
+-- for debugging purpose
+local clazzById = {}
+
 local function clazzToString(clazz)
     local clazzChain = {}
     local clazzIt = clazz
@@ -40,7 +62,7 @@ local function clazzToString(clazz)
         table.insert(clazzChain, clazzIt[MEMBER].id)
         clazzIt = getParentClassForClass(clazzIt)
     end
-    return "class definition: " .. clazz[MEMBER].id .. " (chain: " .. table.concat(clazzChain, " => ") .. ")"
+    return "class: " .. clazz[MEMBER].id .. " (chain: " .. table.concat(clazzChain, " => ") .. ")"
 end
 
 -- for debugging purpose only
@@ -63,6 +85,7 @@ local function createClass(parentClazz, superArgMapper)
     local clazzMetaTable = {}
     clazzMetaTable.__index = clazzMetaTable
     clazzMetaTable.__call = function(clazzCur, ...)
+        local obj
         if parentClazz then
             obj = parentClazz(superArgMapper(...))
         else
@@ -98,7 +121,7 @@ function ObjectClass:getClass()
     return getClassForObject(self)
 end
 function ObjectClass:toString()
-    return "class instance: " .. self[MEMBER].id .. " (class definition: " .. self:getClass()[MEMBER].id .. ")"
+    return "object: " .. self[MEMBER].id .. " (class: " .. self:getClass()[MEMBER].id .. ")"
 end
 
 function ClassSupport.createClass(parentClazz, superArgMapper)
@@ -106,5 +129,10 @@ function ClassSupport.createClass(parentClazz, superArgMapper)
     superArgMapper = superArgMapper or returnNothing
     return createClass(parentClazz, superArgMapper)
 end
+
+ClassSupport.isClass = isClass
+ClassSupport.isObject = isObject
+ClassSupport.requireClass = requireClass
+ClassSupport.requireObject = requireObject
 
 return ClassSupport
